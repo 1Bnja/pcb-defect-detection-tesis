@@ -1,0 +1,8 @@
+.venv/
+data/raw/
+data/processed/
+models/
+outputs/
+*.log
+__pycache__/
+.DS_Store
