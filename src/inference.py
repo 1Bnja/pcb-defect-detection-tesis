@@ -39,7 +39,7 @@ inputs = processor(prompt, [image], return_tensors="pt").to("cuda")
 with torch.no_grad():
     output_ids = model.generate(
         **inputs,
-        max_new_tokens=200,
+        max_new_tokens=100,
         do_sample=False,
         use_cache=False,
         eos_token_id=tokenizer.eos_token_id,
@@ -49,8 +49,7 @@ output_text = processor.tokenizer.decode(
     output_ids[0][inputs["input_ids"].shape[1]:],
     skip_special_tokens=True,
 )
-
+# Quedarse solo con la primera oración
+output_text = output_text.split(".")[0].strip() + "."
 print("=== RESPUESTA DEL MODELO ===")
 print(output_text)
-print("=== RESPUESTA ESPERADA ===")
-print("open circuit, missing hole, short circuit, mouse bite, spurious copper")
