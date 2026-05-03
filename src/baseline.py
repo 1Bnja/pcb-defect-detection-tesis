@@ -1,13 +1,15 @@
 """
-evaluate.py — Experimento 02
-------------------------------
-Evalúa el modelo fine-tuneado sobre el split de test (20%).
-Calcula macro-average correctamente (promedio de métricas por clase).
+baseline.py
+-----------
+Evalúa Phi-3.5-vision SIN fine-tuning sobre el split de test.
+Sirve como línea base para comparar el aporte real del fine-tuning.
 
-Cambios respecto a Experimento 01:
-  - Carga data/processed/splits/test.jsonl  (sin data leakage)
-  - Macro-average real: promedio aritmético de P/R/F1 por clase
-  - Guarda predicciones raw en results/exp02_predictions.jsonl
+Uso:
+    python3 src/baseline.py
+
+Salida:
+    results/baseline_predictions.jsonl
+    results/baseline_metrics.json
 """
 
 import json
@@ -28,15 +30,14 @@ DEFECT_CLASSES = [
     "spur",
 ]
 
-# ── Cargar modelo fine-tuneado ─────────────────────────────────────────────────
+# ── Cargar modelo BASE (sin adaptador LoRA) ────────────────────────────────────
+print("Cargando modelo base (sin fine-tuning)...")
 model, tokenizer = FastVisionModel.from_pretrained(
     "microsoft/Phi-3.5-vision-instruct",
     load_in_4bit=True,
     trust_remote_code=True,
     attn_implementation="eager",
 )
-from peft import PeftModel
-model = PeftModel.from_pretrained(model, "models/phi35-vision-pcb-exp02")
 
 processor = AutoProcessor.from_pretrained(
     "microsoft/Phi-3.5-vision-instruct",
@@ -44,12 +45,13 @@ processor = AutoProcessor.from_pretrained(
     num_crops=4,
 )
 FastVisionModel.for_inference(model)
+print("✅ Modelo base cargado.\n")
 
-# ── Cargar test split ──────────────────────────────────────────────────────────
+# ── Cargar test split (mismo que evaluate.py) ──────────────────────────────────
 with open("data/processed/splits/test.jsonl") as f:
     test_samples = [json.loads(l) for l in f]
 
-print(f"Evaluando sobre {len(test_samples)} ejemplos de test (split fijo)...")
+print(f"Evaluando baseline sobre {len(test_samples)} ejemplos de test...")
 
 # ── Inferencia ─────────────────────────────────────────────────────────────────
 def predict(sample):
@@ -88,7 +90,7 @@ y_pred = defaultdict(list)
 predictions_log = []
 
 for i, sample in enumerate(test_samples):
-    pred_text   = predict(sample)
+    pred_text    = predict(sample)
     pred_defects = parse_defects(pred_text)
     gt_defects   = parse_gt(sample)
 
@@ -107,7 +109,7 @@ for i, sample in enumerate(test_samples):
         print(f"  [{i+1}/{len(test_samples)}]")
 
 # ── Métricas por clase ─────────────────────────────────────────────────────────
-print("\n=== RESULTADOS POR DEFECTO (Experimento 02) ===")
+print("\n=== RESULTADOS BASELINE (sin fine-tuning) ===")
 
 per_class = {}
 for cls in DEFECT_CLASSES:
@@ -120,27 +122,29 @@ for cls in DEFECT_CLASSES:
     per_class[cls] = {"precision": precision, "recall": recall, "f1": f1, "tp": tp, "fp": fp, "fn": fn}
     print(f"  {cls:<20} P={precision:.2f}  R={recall:.2f}  F1={f1:.2f}  (TP={tp}, FP={fp}, FN={fn})")
 
-# ── Macro-average real (promedio aritmético de métricas por clase) ─────────────
+# ── Macro-average ──────────────────────────────────────────────────────────────
 macro_p  = sum(v["precision"] for v in per_class.values()) / len(DEFECT_CLASSES)
 macro_r  = sum(v["recall"]    for v in per_class.values()) / len(DEFECT_CLASSES)
 macro_f1 = sum(v["f1"]        for v in per_class.values()) / len(DEFECT_CLASSES)
 
 print(f"\n{'MACRO PROMEDIO':<20} P={macro_p:.2f}  R={macro_r:.2f}  F1={macro_f1:.2f}")
 
-# ── Guardar predicciones raw ───────────────────────────────────────────────────
+# ── Guardar resultados ─────────────────────────────────────────────────────────
 os.makedirs("results", exist_ok=True)
-with open("results/exp02_predictions.jsonl", "w") as f:
+
+with open("results/baseline_predictions.jsonl", "w") as f:
     for entry in predictions_log:
         f.write(json.dumps(entry) + "\n")
-print("\n✅ Predicciones guardadas en results/exp02_predictions.jsonl")
 
-# ── Guardar métricas resumidas ─────────────────────────────────────────────────
 summary = {
-    "experiment": "02",
+    "experiment": "baseline",
+    "model": "microsoft/Phi-3.5-vision-instruct (sin fine-tuning)",
     "test_samples": len(test_samples),
     "per_class": per_class,
     "macro": {"precision": macro_p, "recall": macro_r, "f1": macro_f1},
 }
-with open("results/exp02_metrics.json", "w") as f:
+with open("results/baseline_metrics.json", "w") as f:
     json.dump(summary, f, indent=2)
-print("✅ Métricas guardadas en results/exp02_metrics.json")
+
+print("\n✅ Predicciones guardadas en results/baseline_predictions.jsonl")
+print("✅ Métricas guardadas   en results/baseline_metrics.json")
