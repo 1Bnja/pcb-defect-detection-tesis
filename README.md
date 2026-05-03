@@ -66,6 +66,7 @@ python3 src/evaluate.py
 ```
 
 ## Estructura
+```
 pcb-defect-detection/
 ├── src/
 │   ├── train.py        # Fine-tuning con LoRA
@@ -77,7 +78,7 @@ pcb-defect-detection/
 ├── models/             # No incluido en el repo (pesos LoRA)
 ├── requirements.txt
 └── README.md
-
+```
 ## Estado
 
 🟡 Primera instancia — estudio de viabilidad completado con resultados positivos (F1 macro 0.94).
