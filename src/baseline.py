@@ -20,6 +20,11 @@ from PIL import Image
 from collections import defaultdict
 import os
 
+# Parche de compatibilidad: transformers>=4.51 eliminó get_max_length() de DynamicCache
+from transformers.cache_utils import DynamicCache
+if not hasattr(DynamicCache, "get_max_length"):
+    DynamicCache.get_max_length = lambda self: None
+
 # ── Defectos posibles ──────────────────────────────────────────────────────────
 DEFECT_CLASSES = [
     "open circuit",
@@ -68,7 +73,7 @@ def predict(sample):
             **inputs,
             max_new_tokens=100,
             do_sample=False,
-            use_cache=False,  # DynamicCache no compatible con Phi-3.5-vision + transformers>=4.51
+            use_cache=True,
             eos_token_id=tokenizer.eos_token_id,
         )
     text = processor.tokenizer.decode(
