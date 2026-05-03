@@ -11,11 +11,13 @@ Cambios respecto a Experimento 01:
 """
 
 import json
+import time
 import torch
 from unsloth import FastVisionModel
 from transformers import AutoProcessor
 from PIL import Image
 from collections import defaultdict
+from tqdm import tqdm
 import os
 
 # Parche de compatibilidad: transformers>=4.51 eliminó get_max_length() de DynamicCache
@@ -56,6 +58,7 @@ with open("data/processed/splits/test.jsonl") as f:
     test_samples = [json.loads(l) for l in f]
 
 print(f"Evaluando sobre {len(test_samples)} ejemplos de test (split fijo)...")
+t_inicio = time.time()
 
 # ── Inferencia ─────────────────────────────────────────────────────────────────
 def predict(sample):
@@ -93,8 +96,10 @@ y_true = defaultdict(list)
 y_pred = defaultdict(list)
 predictions_log = []
 
-for i, sample in enumerate(test_samples):
-    pred_text   = predict(sample)
+pbar = tqdm(test_samples, desc="Evaluando", unit="img", dynamic_ncols=True)
+for i, sample in enumerate(pbar):
+    t_img = time.time()
+    pred_text    = predict(sample)
     pred_defects = parse_defects(pred_text)
     gt_defects   = parse_gt(sample)
 
@@ -109,8 +114,14 @@ for i, sample in enumerate(test_samples):
         "pred_text": pred_text,
     })
 
-    if (i + 1) % 10 == 0:
-        print(f"  [{i+1}/{len(test_samples)}]")
+    # Actualizar barra con tiempo por imagen y ETA
+    elapsed = time.time() - t_inicio
+    seg_por_img = elapsed / (i + 1)
+    restantes = (len(test_samples) - i - 1) * seg_por_img
+    pbar.set_postfix({
+        "s/img": f"{seg_por_img:.1f}",
+        "ETA": f"{int(restantes//60)}m{int(restantes%60):02d}s",
+    })
 
 # ── Métricas por clase ─────────────────────────────────────────────────────────
 print("\n=== RESULTADOS POR DEFECTO (Experimento 02) ===")
@@ -131,7 +142,9 @@ macro_p  = sum(v["precision"] for v in per_class.values()) / len(DEFECT_CLASSES)
 macro_r  = sum(v["recall"]    for v in per_class.values()) / len(DEFECT_CLASSES)
 macro_f1 = sum(v["f1"]        for v in per_class.values()) / len(DEFECT_CLASSES)
 
+t_total = time.time() - t_inicio
 print(f"\n{'MACRO PROMEDIO':<20} P={macro_p:.2f}  R={macro_r:.2f}  F1={macro_f1:.2f}")
+print(f"\n⏱  Tiempo total: {int(t_total//60)}m {int(t_total%60):02d}s  ({t_total/len(test_samples):.1f}s por imagen)")
 
 # ── Guardar predicciones raw ───────────────────────────────────────────────────
 os.makedirs("results", exist_ok=True)
