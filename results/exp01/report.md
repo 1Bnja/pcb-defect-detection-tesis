@@ -39,9 +39,8 @@
 - `short circuit` es la clase con menor F1 (0.86), posible candidato a mejora con más datos o ajuste de prompt.
 - El defecto `spur` tiene F1 perfecto (0.98) pero no siempre estaba etiquetado en el ground truth, lo que puede subestimar la precisión real del modelo.
 
-## Próximos pasos
+## ⚠️ Notas metodológicas
 
-- [ ] Evaluar modelo base sin fine-tuning como baseline de comparación
-- [ ] Experimentar con más epochs o mayor dataset
-- [ ] Analizar ejemplos de falsos positivos en short circuit
-- [ ] Agregar validación durante entrenamiento para detectar overfitting
+- Split incorrecto: 80/20 sin separar validación, posible data leakage.
+- Macro-average calculado como micro (concatenación de vectores binarios) en lugar de promedio aritmético por clase.
+- Los valores de F1 son **indicativos** y no reproducibles con la metodología corregida de Exp 02+.

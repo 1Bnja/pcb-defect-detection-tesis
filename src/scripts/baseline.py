@@ -126,8 +126,8 @@ macro_f1 = sum(v["f1"]        for v in per_class.values()) / len(DEFECT_CLASSES)
 print(f"\n{'MACRO PROMEDIO':<20} P={macro_p:.2f}  R={macro_r:.2f}  F1={macro_f1:.2f}")
 
 # ── Guardar ────────────────────────────────────────────────────────────────────
-os.makedirs("results", exist_ok=True)
-with open("results/baseline_predictions.jsonl", "w") as f:
+os.makedirs("results/baseline", exist_ok=True)
+with open("results/baseline/predictions.jsonl", "w") as f:
     for entry in predictions_log:
         f.write(json.dumps(entry) + "\n")
 
@@ -138,8 +138,8 @@ summary = {
     "per_class": per_class,
     "macro": {"precision": macro_p, "recall": macro_r, "f1": macro_f1},
 }
-with open("results/baseline_metrics.json", "w") as f:
+with open("results/baseline/metrics.json", "w") as f:
     json.dump(summary, f, indent=2)
 
-print("\n✅ Predicciones guardadas en results/baseline_predictions.jsonl")
-print("✅ Métricas guardadas   en results/baseline_metrics.json")
+print("\n✅ Predicciones guardadas en results/baseline/predictions.jsonl")
+print("✅ Métricas guardadas   en results/baseline/metrics.json")

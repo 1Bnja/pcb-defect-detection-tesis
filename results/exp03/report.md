@@ -82,8 +82,8 @@ Exp 03 sería más adecuado en un pipeline de doble revisión donde Exp 02 hace 
 
 | | Baseline | Exp 01 | Exp 02 | Exp 03 |
 |---|---|---|---|---|
-| Split | — | Incorrecto (leakage) | ✅ 70/10/20 | ✅ 70/10/20 |
-| Métrica macro | Incorrecta | Incorrecta (micro) | ✅ Correcta | ✅ Correcta |
+| Split | — | ⚠️ Incorrecto (leakage) | ✅ 70/10/20 | ✅ 70/10/20 |
+| Métrica macro | — | ⚠️ Incorrecta (micro) | ✅ Correcta | ✅ Correcta |
 | LoRA modules | — | Atención | Atención | Atención + MLP |
 | Learning rate | — | 2e-4 | 2e-4 | 1e-4 |
 | Epochs | — | 3 | 3 | 5 |

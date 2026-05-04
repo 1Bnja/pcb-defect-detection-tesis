@@ -16,9 +16,10 @@ _Generado: 2026-05-02 23:59_
 | Batch size efectivo | 8 (bs=1, grad_accum=8) |
 | Cuantización | 4-bit |
 | Dataset | DeepPCB |
-| Train/Val/Test | ?/?/300 (70/10/20) |
+| Train/Val/Test | 1050/150/300 (70/10/20) |
 | Split seed | 42 (reproducible) |
 | eval_strategy | epoch |
+| Tiempo entrenamiento | ~52 min |
 
 ## Resultados — Baseline (sin fine-tuning)
 
@@ -60,7 +61,7 @@ _Generado: 2026-05-02 23:59_
 
 ## Próximos pasos
 
+- [x] Ampliar LoRA a capas MLP (gate_proj, up_proj, down_proj) → Exp 03
 - [ ] Analizar falsos positivos/negativos cualitativamente (imágenes)
-- [ ] Ampliar LoRA a capas MLP (gate_proj, up_proj, down_proj)
 - [ ] Experimentar con prompt estructurado (salida JSON)
 - [ ] Aumentación de datos para mejorar robustez

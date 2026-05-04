@@ -21,8 +21,8 @@ def load(path):
     with open(path) as f:
         return json.load(f)
 
-baseline = load("results/baseline_metrics.json")
-exp02    = load("results/exp02_metrics.json")
+baseline = load("results/baseline/metrics.json")
+exp02    = load("results/exp02/metrics.json")
 
 lines = []
 lines.append("# Experimento 02 — Fine-tuning Phi-3.5-vision en DeepPCB (Split Corregido)\n")
@@ -89,8 +89,8 @@ lines.append("- La métrica macro-average es ahora el promedio aritmético de F1
 lines.append("- La evaluación sobre validación epoch a epoch permite detectar posible overfitting.")
 
 output = "\n".join(lines) + "\n"
-os.makedirs("results", exist_ok=True)
-with open("results/experiment_02.md", "w") as f:
+os.makedirs("results/exp02", exist_ok=True)
+with open("results/exp02/report.md", "w") as f:
     f.write(output)
 
-print("✅ results/experiment_02.md generado.")
+print("✅ results/exp02/report.md generado.")

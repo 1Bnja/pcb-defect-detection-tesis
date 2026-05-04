@@ -130,8 +130,8 @@ print(f"\n{'MACRO PROMEDIO':<20} P={macro_p:.2f}  R={macro_r:.2f}  F1={macro_f1:
 print(f"\n⏱  Tiempo total: {int(t_total//60)}m {int(t_total%60):02d}s  ({t_total/len(test_samples):.1f}s por imagen)")
 
 # ── Guardar ────────────────────────────────────────────────────────────────────
-os.makedirs("results", exist_ok=True)
-with open("results/exp03_predictions.jsonl", "w") as f:
+os.makedirs("results/exp03", exist_ok=True)
+with open("results/exp03/predictions.jsonl", "w") as f:
     for entry in predictions_log:
         f.write(json.dumps(entry) + "\n")
 
@@ -141,8 +141,8 @@ summary = {
     "per_class": per_class,
     "macro": {"precision": macro_p, "recall": macro_r, "f1": macro_f1},
 }
-with open("results/exp03_metrics.json", "w") as f:
+with open("results/exp03/metrics.json", "w") as f:
     json.dump(summary, f, indent=2)
 
-print("✅ Predicciones guardadas en results/exp03_predictions.jsonl")
-print("✅ Métricas guardadas   en results/exp03_metrics.json")
+print("✅ Predicciones guardadas en results/exp03/predictions.jsonl")
+print("✅ Métricas guardadas   en results/exp03/metrics.json")
