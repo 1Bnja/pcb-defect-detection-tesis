@@ -1,50 +1,43 @@
 """
-evaluate.py — Experimento 02
-------------------------------
-Evalúa el modelo fine-tuneado sobre el split de test (20%).
-Calcula macro-average correctamente (promedio de métricas por clase).
+baseline.py
+-----------
+Evalúa Phi-3.5-vision SIN fine-tuning sobre el split de test.
+Sirve como línea base para comparar el aporte real del fine-tuning.
 
-Cambios respecto a Experimento 01:
-  - Carga data/processed/splits/test.jsonl  (sin data leakage)
-  - Macro-average real: promedio aritmético de P/R/F1 por clase
-  - Guarda predicciones raw en results/exp02_predictions.jsonl
+Uso:
+    python3 src/scripts/baseline.py
+
+Salida:
+    results/baseline_predictions.jsonl
+    results/baseline_metrics.json
 """
 
 import json
-import time
 import torch
 from unsloth import FastVisionModel
 from transformers import AutoProcessor
 from PIL import Image
 from collections import defaultdict
-from tqdm import tqdm
 import os
 
 # Parche de compatibilidad: transformers>=4.51 eliminó get_max_length() de DynamicCache
-# pero modeling_phi3_v.py todavía lo llama. Esto lo restaura y habilita use_cache=True.
 from transformers.cache_utils import DynamicCache
 if not hasattr(DynamicCache, "get_max_length"):
     DynamicCache.get_max_length = lambda self: None
 
-# ── Defectos posibles ──────────────────────────────────────────────────────────
 DEFECT_CLASSES = [
-    "open circuit",
-    "short circuit",
-    "mouse bite",
-    "spurious copper",
-    "missing hole",
-    "spur",
+    "open circuit", "short circuit", "mouse bite",
+    "spurious copper", "missing hole", "spur",
 ]
 
-# ── Cargar modelo fine-tuneado ─────────────────────────────────────────────────
+# ── Cargar modelo BASE (sin adaptador LoRA) ────────────────────────────────────
+print("Cargando modelo base (sin fine-tuning)...")
 model, tokenizer = FastVisionModel.from_pretrained(
     "microsoft/Phi-3.5-vision-instruct",
     load_in_4bit=True,
     trust_remote_code=True,
     attn_implementation="eager",
 )
-from peft import PeftModel
-model = PeftModel.from_pretrained(model, "models/phi35-vision-pcb-exp02")
 
 processor = AutoProcessor.from_pretrained(
     "microsoft/Phi-3.5-vision-instruct",
@@ -52,13 +45,13 @@ processor = AutoProcessor.from_pretrained(
     num_crops=4,
 )
 FastVisionModel.for_inference(model)
+print("✅ Modelo base cargado.\n")
 
 # ── Cargar test split ──────────────────────────────────────────────────────────
 with open("data/processed/splits/test.jsonl") as f:
     test_samples = [json.loads(l) for l in f]
 
-print(f"Evaluando sobre {len(test_samples)} ejemplos de test (split fijo)...")
-t_inicio = time.time()
+print(f"Evaluando baseline sobre {len(test_samples)} ejemplos de test...")
 
 # ── Inferencia ─────────────────────────────────────────────────────────────────
 def predict(sample):
@@ -88,17 +81,14 @@ def parse_defects(text):
     return set(d for d in DEFECT_CLASSES if d in text)
 
 def parse_gt(sample):
-    gpt_msg = sample["conversations"][1]["value"].lower()
-    return set(d for d in DEFECT_CLASSES if d in gpt_msg)
+    return set(d for d in DEFECT_CLASSES if d in sample["conversations"][1]["value"].lower())
 
 # ── Loop de evaluación ─────────────────────────────────────────────────────────
 y_true = defaultdict(list)
 y_pred = defaultdict(list)
 predictions_log = []
 
-pbar = tqdm(test_samples, desc="Evaluando", unit="img", dynamic_ncols=True)
-for i, sample in enumerate(pbar):
-    t_img = time.time()
+for i, sample in enumerate(test_samples):
     pred_text    = predict(sample)
     pred_defects = parse_defects(pred_text)
     gt_defects   = parse_gt(sample)
@@ -114,18 +104,11 @@ for i, sample in enumerate(pbar):
         "pred_text": pred_text,
     })
 
-    # Actualizar barra con tiempo por imagen y ETA
-    elapsed = time.time() - t_inicio
-    seg_por_img = elapsed / (i + 1)
-    restantes = (len(test_samples) - i - 1) * seg_por_img
-    pbar.set_postfix({
-        "s/img": f"{seg_por_img:.1f}",
-        "ETA": f"{int(restantes//60)}m{int(restantes%60):02d}s",
-    })
+    if (i + 1) % 10 == 0:
+        print(f"  [{i+1}/{len(test_samples)}]")
 
-# ── Métricas por clase ─────────────────────────────────────────────────────────
-print("\n=== RESULTADOS POR DEFECTO (Experimento 02) ===")
-
+# ── Métricas ───────────────────────────────────────────────────────────────────
+print("\n=== RESULTADOS BASELINE (sin fine-tuning) ===")
 per_class = {}
 for cls in DEFECT_CLASSES:
     tp = sum(t == 1 and p == 1 for t, p in zip(y_true[cls], y_pred[cls]))
@@ -135,31 +118,28 @@ for cls in DEFECT_CLASSES:
     recall    = tp / (tp + fn) if (tp + fn) > 0 else 0.0
     f1        = 2 * precision * recall / (precision + recall) if (precision + recall) > 0 else 0.0
     per_class[cls] = {"precision": precision, "recall": recall, "f1": f1, "tp": tp, "fp": fp, "fn": fn}
-    print(f"  {cls:<20} P={precision:.2f}  R={recall:.2f}  F1={f1:.2f}  (TP={tp}, FP={fp}, FN={fn})")
+    print(f"  {cls:<20} P={precision:.2f}  R={recall:.2f}  F1={f1:.2f}")
 
-# ── Macro-average real (promedio aritmético de métricas por clase) ─────────────
 macro_p  = sum(v["precision"] for v in per_class.values()) / len(DEFECT_CLASSES)
 macro_r  = sum(v["recall"]    for v in per_class.values()) / len(DEFECT_CLASSES)
 macro_f1 = sum(v["f1"]        for v in per_class.values()) / len(DEFECT_CLASSES)
-
-t_total = time.time() - t_inicio
 print(f"\n{'MACRO PROMEDIO':<20} P={macro_p:.2f}  R={macro_r:.2f}  F1={macro_f1:.2f}")
-print(f"\n⏱  Tiempo total: {int(t_total//60)}m {int(t_total%60):02d}s  ({t_total/len(test_samples):.1f}s por imagen)")
 
-# ── Guardar predicciones raw ───────────────────────────────────────────────────
+# ── Guardar ────────────────────────────────────────────────────────────────────
 os.makedirs("results", exist_ok=True)
-with open("results/exp02_predictions.jsonl", "w") as f:
+with open("results/baseline_predictions.jsonl", "w") as f:
     for entry in predictions_log:
         f.write(json.dumps(entry) + "\n")
-print("\n✅ Predicciones guardadas en results/exp02_predictions.jsonl")
 
-# ── Guardar métricas resumidas ─────────────────────────────────────────────────
 summary = {
-    "experiment": "02",
+    "experiment": "baseline",
+    "model": "microsoft/Phi-3.5-vision-instruct (sin fine-tuning)",
     "test_samples": len(test_samples),
     "per_class": per_class,
     "macro": {"precision": macro_p, "recall": macro_r, "f1": macro_f1},
 }
-with open("results/exp02_metrics.json", "w") as f:
+with open("results/baseline_metrics.json", "w") as f:
     json.dump(summary, f, indent=2)
-print("✅ Métricas guardadas en results/exp02_metrics.json")
+
+print("\n✅ Predicciones guardadas en results/baseline_predictions.jsonl")
+print("✅ Métricas guardadas   en results/baseline_metrics.json")

@@ -1,11 +1,11 @@
 """
 compare_results.py
 ------------------
-Genera results/experiment_02.md comparando baseline vs fine-tuned.
-Corre después de baseline.py y evaluate.py.
+Genera results/experiment_02.md comparando baseline vs fine-tuned Exp 02.
+Corre después de scripts/baseline.py y experiments/exp02/evaluate.py.
 
 Uso:
-    python3 src/compare_results.py
+    python3 src/scripts/compare_results.py
 """
 
 import json
@@ -13,12 +13,8 @@ import os
 from datetime import datetime
 
 DEFECT_CLASSES = [
-    "open circuit",
-    "short circuit",
-    "mouse bite",
-    "spurious copper",
-    "missing hole",
-    "spur",
+    "open circuit", "short circuit", "mouse bite",
+    "spurious copper", "missing hole", "spur",
 ]
 
 def load(path):
@@ -45,7 +41,7 @@ lines.append("| Learning rate | 2e-4 |")
 lines.append("| Batch size efectivo | 8 (bs=1, grad_accum=8) |")
 lines.append("| Cuantización | 4-bit |")
 lines.append("| Dataset | DeepPCB |")
-lines.append(f"| Train/Val/Test | {exp02.get('train_n','?')}/{exp02.get('val_n','?')}/{exp02['test_samples']} (70/10/20) |")
+lines.append(f"| Train/Val/Test | 1050/150/{exp02['test_samples']} (70/10/20) |")
 lines.append("| Split seed | 42 (reproducible) |")
 lines.append("| eval_strategy | epoch |")
 lines.append("")
@@ -64,10 +60,10 @@ lines.append("## Resultados — Fine-tuned Exp 02\n")
 lines.append("| Defecto | Precisión | Recall | F1 | Δ F1 vs Baseline |")
 lines.append("|---|---|---|---|---|")
 for cls in DEFECT_CLASSES:
-    m  = exp02["per_class"][cls]
-    bm_cls = baseline["per_class"][cls]
-    delta = m["f1"] - bm_cls["f1"]
-    sign  = "+" if delta >= 0 else ""
+    m      = exp02["per_class"][cls]
+    b      = baseline["per_class"][cls]
+    delta  = m["f1"] - b["f1"]
+    sign   = "+" if delta >= 0 else ""
     lines.append(f"| {cls} | {m['precision']:.2f} | {m['recall']:.2f} | {m['f1']:.2f} | {sign}{delta:.2f} |")
 em = exp02["macro"]
 bm = baseline["macro"]
@@ -91,19 +87,10 @@ lines.append("## Observaciones\n")
 lines.append("- Split 70/10/20 con seed=42 garantiza reproducibilidad y elimina el data leakage del Exp 01.")
 lines.append("- La métrica macro-average es ahora el promedio aritmético de F1 por clase (corrección respecto al Exp 01).")
 lines.append("- La evaluación sobre validación epoch a epoch permite detectar posible overfitting.")
-lines.append("")
-
-lines.append("## Próximos pasos\n")
-lines.append("- [ ] Analizar falsos positivos/negativos cualitativamente (imágenes)")
-lines.append("- [ ] Ampliar LoRA a capas MLP (gate_proj, up_proj, down_proj)")
-lines.append("- [ ] Experimentar con prompt estructurado (salida JSON)")
-lines.append("- [ ] Aumentación de datos para mejorar robustez")
 
 output = "\n".join(lines) + "\n"
-
 os.makedirs("results", exist_ok=True)
 with open("results/experiment_02.md", "w") as f:
     f.write(output)
 
 print("✅ results/experiment_02.md generado.")
-print(output)

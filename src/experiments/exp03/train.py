@@ -1,19 +1,16 @@
 """
-train.py — Experimento 02
+train.py — Experimento 03
 --------------------------
-Fine-tuning de Phi-3.5-vision con LoRA sobre el split de entrenamiento (70%).
-Incluye eval_dataset (split val 10%) para monitorear overfitting.
-
-Cambios respecto a Experimento 01:
-  - Carga data/processed/splits/train.jsonl  (sin data leakage)
-  - Usa data/processed/splits/val.jsonl como eval_dataset
-  - evaluation_strategy="epoch" para detectar overfitting
-  - Guarda modelo en models/phi35-vision-pcb-exp02
+Cambios respecto a Exp 02:
+  - LoRA ampliado a capas MLP (gate_proj, up_proj, down_proj) además de atención
+  - Learning rate reducido: 1e-4 (más conservador, mejor convergencia)
+  - Epochs aumentados a 5 con early stopping basado en val loss
+  - Guarda modelo en models/phi35-vision-pcb-exp03
 """
 
 from unsloth import FastVisionModel
 import torch
-from transformers import TrainingArguments, AutoProcessor
+from transformers import TrainingArguments, AutoProcessor, EarlyStoppingCallback
 from trl import SFTTrainer
 from torch.utils.data import Dataset
 from PIL import Image
@@ -34,11 +31,14 @@ processor = AutoProcessor.from_pretrained(
     num_crops=4,
 )
 
-# ── 2. LoRA ────────────────────────────────────────────────────────────────────
+# ── 2. LoRA ampliado (atención + MLP) ─────────────────────────────────────────
 model = FastVisionModel.get_peft_model(
     model,
     r=16,
-    target_modules=["q_proj", "k_proj", "v_proj", "o_proj"],
+    target_modules=[
+        "q_proj", "k_proj", "v_proj", "o_proj",   # Atención
+        "gate_proj", "up_proj", "down_proj",        # MLP
+    ],
     lora_alpha=16,
     lora_dropout=0,
     bias="none",
@@ -74,7 +74,6 @@ class PCBDataset(Dataset):
         input_ids = inputs["input_ids"].squeeze(0)
         labels = input_ids.clone()
 
-        # Enmascarar turno del usuario — solo entrenar en la respuesta
         assistant_token = processor.tokenizer.encode("<|assistant|>", add_special_tokens=False)
         for i in range(len(labels) - len(assistant_token)):
             if labels[i:i+len(assistant_token)].tolist() == assistant_token:
@@ -111,7 +110,7 @@ def collate_fn(batch):
         "labels":         labels,
     }
 
-# ── 5. Cargar splits (sin data leakage) ───────────────────────────────────────
+# ── 5. Cargar splits ───────────────────────────────────────────────────────────
 train_dataset = PCBDataset("data/processed/splits/train.jsonl", processor)
 val_dataset   = PCBDataset("data/processed/splits/val.jsonl",   processor)
 
@@ -125,22 +124,23 @@ trainer = SFTTrainer(
     model=model,
     tokenizer=tokenizer,
     train_dataset=train_dataset,
-    eval_dataset=val_dataset,       # ← nuevo: monitorear val loss por epoch
+    eval_dataset=val_dataset,
     data_collator=collate_fn,
     max_seq_length=2048,
     dataset_text_field=None,
+    callbacks=[EarlyStoppingCallback(early_stopping_patience=2)],
     args=TrainingArguments(
         per_device_train_batch_size=1,
         gradient_accumulation_steps=8,
         warmup_steps=5,
-        num_train_epochs=3,
-        learning_rate=2e-4,
+        num_train_epochs=5,
+        learning_rate=1e-4,
         bf16=True,
         logging_steps=1,
-        output_dir="models/phi35-vision-pcb-exp02",
-        eval_strategy="epoch",               # ← eval al final de cada epoch
+        output_dir="models/phi35-vision-pcb-exp03",
+        eval_strategy="epoch",
         save_strategy="epoch",
-        load_best_model_at_end=True,        # ← guardar el mejor checkpoint
+        load_best_model_at_end=True,
         metric_for_best_model="eval_loss",
         remove_unused_columns=False,
         dataloader_pin_memory=False,
@@ -149,6 +149,6 @@ trainer = SFTTrainer(
 
 trainer.train()
 
-model.save_pretrained("models/phi35-vision-pcb-exp02")
-tokenizer.save_pretrained("models/phi35-vision-pcb-exp02")
-print("✅ Modelo Experimento 02 guardado en models/phi35-vision-pcb-exp02")
+model.save_pretrained("models/phi35-vision-pcb-exp03")
+tokenizer.save_pretrained("models/phi35-vision-pcb-exp03")
+print("✅ Modelo Experimento 03 guardado en models/phi35-vision-pcb-exp03")
